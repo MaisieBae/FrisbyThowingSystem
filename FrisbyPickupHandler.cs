@@ -56,8 +56,6 @@ public class FrisbyPickupHandler : UdonSharpBehaviour
         if (bounceParticlesRoot != null) bounceParticlesRoot.SetActive(false);
     }
 
-    // ── In-Flight Audio ──────────────────────────────────────────────────────
-
     public void StartFlightAudio()
     {
         if (audioSource == null || flightClip == null) return;
@@ -74,23 +72,18 @@ public class FrisbyPickupHandler : UdonSharpBehaviour
         audioSource.clip = null;
     }
 
-    // ── Called by FrisbyLauncher when frisbee arrives at mouth ───────────────
-
     public void AttachToMouth()
     {
         isAttachedToMouth = true;
         isThrown = false;
         canDespawnOnCollision = false;
 
-        // ULTIMATE FIX: make the frisbee a ghost object during mouth attachment
-        // Layer 0 (Default) collides with everything — move to Layer 2 (TransparentFX)
-        // which ignores player collision entirely
-        gameObject.layer = 2;  // TransparentFX layer
-
         rb.isKinematic = true;
         rb.useGravity = false;
         rb.velocity = Vector3.zero;
         rb.angularVelocity = Vector3.zero;
+
+        rb.detectCollisions = false;
 
         if (pickup != null) pickup.pickupable = true;
 
@@ -101,8 +94,6 @@ public class FrisbyPickupHandler : UdonSharpBehaviour
             catchParticlesRoot.SetActive(true);
     }
 
-    // ── Called by FrisbyLauncher when frisbee hits a head zone ───────────────
-
     public void TriggerBounce()
     {
         string zone = pendingZoneName;
@@ -112,8 +103,7 @@ public class FrisbyPickupHandler : UdonSharpBehaviour
         isThrown = true;
         canDespawnOnCollision = false;
 
-        // Restore collision layer for bounce physics
-        gameObject.layer = 0;  // Default layer
+        rb.detectCollisions = true;
 
         rb.isKinematic = false;
         rb.useGravity = true;
@@ -125,10 +115,10 @@ public class FrisbyPickupHandler : UdonSharpBehaviour
             var head = localPlayer.GetTrackingData(VRCPlayerApi.TrackingDataType.Head);
             Vector3 bounceDir;
 
-            if (zone == "Back") bounceDir = -(head.rotation * Vector3.forward) + Vector3.up * 0.8f;
+            if (zone == "Back")      bounceDir = -(head.rotation * Vector3.forward) + Vector3.up * 0.8f;
             else if (zone == "Left") bounceDir = head.rotation * Vector3.right + Vector3.up * 0.5f;
-            else if (zone == "Right") bounceDir = -(head.rotation * Vector3.right) + Vector3.up * 0.5f;
-            else bounceDir = head.rotation * Vector3.forward + Vector3.up;
+            else if (zone == "Right")bounceDir = -(head.rotation * Vector3.right) + Vector3.up * 0.5f;
+            else                     bounceDir = head.rotation * Vector3.forward + Vector3.up;
 
             rb.velocity = bounceDir.normalized * 3.5f;
             rb.angularVelocity = new Vector3(
@@ -144,13 +134,13 @@ public class FrisbyPickupHandler : UdonSharpBehaviour
         SendCustomEventDelayedSeconds("EnableCollisionDespawn", despawnWindowDelay);
     }
 
-    // ── VRCPickup Callbacks ──────────────────────────────────────────────────
-
     public override void OnPickup()
     {
         isAttachedToMouth = false;
         canDespawnOnCollision = false;
         isThrown = false;
+
+        rb.detectCollisions = true;
     }
 
     public override void OnDrop()
@@ -158,8 +148,7 @@ public class FrisbyPickupHandler : UdonSharpBehaviour
         isThrown = true;
         canDespawnOnCollision = false;
 
-        // Restore collision layer for drop physics
-        gameObject.layer = 0;  // Default layer
+        rb.detectCollisions = true;
 
         rb.isKinematic = false;
         rb.useGravity = true;
@@ -168,8 +157,6 @@ public class FrisbyPickupHandler : UdonSharpBehaviour
 
         SendCustomEventDelayedSeconds("EnableCollisionDespawn", despawnWindowDelay);
     }
-
-    // ── Despawn Logic ────────────────────────────────────────────────────────
 
     public void EnableCollisionDespawn()
     {
@@ -189,6 +176,8 @@ public class FrisbyPickupHandler : UdonSharpBehaviour
         isAttachedToMouth = false;
         canDespawnOnCollision = false;
 
+        rb.detectCollisions = true;
+
         rb.isKinematic = true;
         rb.useGravity = false;
         rb.velocity = Vector3.zero;
@@ -204,8 +193,6 @@ public class FrisbyPickupHandler : UdonSharpBehaviour
         if (launcher != null)
             launcher.OnFrisbyDespawned();
     }
-
-    // ── Mouth Attach Follow ──────────────────────────────────────────────────
 
     public override void PostLateUpdate()
     {
